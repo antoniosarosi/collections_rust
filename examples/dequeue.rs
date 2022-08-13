@@ -1,4 +1,4 @@
-use linked_list::Dequeue;
+use collections_rust::Dequeue;
 
 fn main() {
     let mut dequeue = Dequeue::new();

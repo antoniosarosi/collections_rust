@@ -617,7 +617,7 @@ impl<'a, T> CursorMut<'a, T> {
     /// # Examples
     ///
     /// ```
-    /// use linked_list::Dequeue;
+    /// use collections_rust::Dequeue;
     ///
     /// let mut dequeue = Dequeue::new();
     /// dequeue.extend([1, 2, 3]);

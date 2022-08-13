@@ -1,4 +1,4 @@
-use linked_list::Queue;
+use collections_rust::Queue;
 
 fn main() {
     // Seg fault example

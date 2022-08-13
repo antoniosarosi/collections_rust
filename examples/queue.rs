@@ -1,4 +1,4 @@
-use linked_list::LinkedList;
+use linked_list::Queue;
 
 fn main() {
     // Seg fault example
@@ -8,11 +8,11 @@ fn main() {
     // }
     // println!("yay");
 
-    let mut list = LinkedList::new();
+    let mut queue = Queue::new();
 
-    list.append(3);
-    list.append(5);
-    list.append(7);
+    queue.append(3);
+    queue.append(5);
+    queue.append(7);
 
-    println!("{list}");
+    println!("{queue}");
 }

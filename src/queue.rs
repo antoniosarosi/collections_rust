@@ -40,6 +40,10 @@ impl<T> Queue<T> {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     pub fn append(&mut self, value: T) {
         let node = Box::into_raw(Box::new(Node::new(value, std::ptr::null_mut())));
 
@@ -84,10 +88,6 @@ impl<T> Queue<T> {
         unsafe { self.head.as_mut().map(|node| &mut node.value) }
     }
 
-    pub fn into_iter(self) -> IntoIter<T> {
-        IntoIter(self)
-    }
-
     pub fn iter(&self) -> Iter<'_, T> {
         unsafe {
             Iter {
@@ -105,9 +105,24 @@ impl<T> Queue<T> {
     }
 }
 
+impl<T> IntoIterator for Queue<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter(self)
+    }
+}
+
+impl<T> Default for Queue<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> Drop for Queue<T> {
     fn drop(&mut self) {
-        while let Some(_) = self.pop() {}
+        while self.pop().is_some() {}
     }
 }
 
@@ -147,7 +162,7 @@ impl<'a, T> Iterator for IterMut<'a, T> {
 
 impl<T: Display> Display for Queue<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.len() == 0 {
+        if self.is_empty() {
             return write!(f, "[]");
         }
 
@@ -157,7 +172,7 @@ impl<T: Display> Display for Queue<T> {
 
         let mut iter = self.iter();
         write!(f, "[{}", iter.next().unwrap())?;
-        while let Some(value) = iter.next() {
+        for value in iter {
             write!(f, ", {}", value)?;
         }
         write!(f, "]")

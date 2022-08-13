@@ -37,6 +37,12 @@ pub struct CursorMut<'a, T> {
     index: Option<usize>,
 }
 
+impl<T> Node<T> {
+    unsafe fn new_non_null(value: T, next: Link<T>, prev: Link<T>) -> NonNull<Node<T>> {
+        NonNull::new_unchecked(Box::into_raw(Box::new(Node { next, prev, value })))
+    }
+}
+
 impl<T> Dequeue<T> {
     pub fn new() -> Self {
         Self {
@@ -61,11 +67,7 @@ impl<T> Dequeue<T> {
 
     pub fn push_front(&mut self, value: T) {
         unsafe {
-            let node = NonNull::new_unchecked(Box::into_raw(Box::new(Node {
-                next: None,
-                prev: None,
-                value,
-            })));
+            let node = Node::new_non_null(value, None, None);
 
             if let Some(old_head) = self.head {
                 (*old_head.as_ptr()).prev = Some(node);
@@ -81,11 +83,7 @@ impl<T> Dequeue<T> {
 
     pub fn push_back(&mut self, value: T) {
         unsafe {
-            let node = NonNull::new_unchecked(Box::into_raw(Box::new(Node {
-                next: None,
-                prev: None,
-                value,
-            })));
+            let node = Node::new_non_null(value, None, None);
 
             if let Some(old_tail) = self.tail {
                 (*old_tail.as_ptr()).next = Some(node);
@@ -173,8 +171,8 @@ impl<T> Dequeue<T> {
 
     pub fn cursor_mut(&mut self) -> CursorMut<T> {
         CursorMut {
-            current: None,
             dequeue: self,
+            current: None,
             index: None,
         }
     }
@@ -611,6 +609,71 @@ impl<'a, T> CursorMut<'a, T> {
             input.len = 0;
         }
     }
+
+    /// Removes the node pointed by the cursor and returns its value. If the list
+    /// is empty or the cursor doesn't point anywhere, it returns None and does
+    /// nothing.
+    /// 
+    /// # Examples
+    ///
+    /// ```
+    /// use linked_list::Dequeue;
+    ///
+    /// let mut dequeue = Dequeue::new();
+    /// dequeue.extend([1, 2, 3]);
+    ///
+    /// let mut cursor = dequeue.cursor_mut();
+    /// cursor.move_next();
+    ///
+    /// assert_eq!(Some(1), cursor.remove_current());
+    ///
+    /// cursor.move_prev();
+    ///
+    /// assert_eq!(None, cursor.remove_current());
+    /// assert_eq!(2, dequeue.len());
+    /// ```
+    pub fn remove_current(&mut self) -> Option<T> {
+        if self.dequeue.is_empty() {
+            return None;
+        }
+
+        if self.current.is_none() {
+            return None;
+        }
+
+        unsafe {
+            let mut current = Box::from_raw(self.current.unwrap().as_ptr());
+
+            let value = current.value;
+
+            if let Some(next) = current.next {
+                if let Some(prev) = current.prev {
+                    (*prev.as_ptr()).next = Some(next);
+                    (*next.as_ptr()).prev = Some(prev);
+                } else {
+                    self.dequeue.head = Some(next);
+                    (*next.as_ptr()).prev = None;
+                }
+                self.current = Some(next);
+            } else {
+                if let Some(prev) = current.prev {
+                    self.dequeue.tail = Some(prev);
+                    (*prev.as_ptr()).next = None;
+                } else {
+                    self.dequeue.tail = None;
+                    self.dequeue.head = None;
+                }
+                self.current = None;
+            }
+
+            current.next = None;
+            current.prev = None;
+
+            self.dequeue.len -= 1;
+
+            Some(value)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -950,7 +1013,6 @@ mod test {
             &[10, 7, 1, 8, 2, 3, 4, 5, 6, 9]
         );
 
-        /* remove_current not impl'd
         let mut cursor = m.cursor_mut();
         cursor.move_next();
         cursor.move_prev();
@@ -965,8 +1027,11 @@ mod test {
         cursor.move_next();
         assert_eq!(cursor.remove_current(), Some(10));
         check_links(&m);
-        assert_eq!(m.iter().cloned().collect::<Vec<_>>(), &[1, 8, 2, 3, 4, 5, 6]);
-        */
+        assert_eq!(
+            m.iter().cloned().collect::<Vec<_>>(),
+            &[1, 8, 2, 3, 4, 5, 6]
+        );
+        assert_eq!(m.len(), 7);
 
         let mut m: Dequeue<u32> = Dequeue::new();
         m.extend([1, 8, 2, 3, 4, 5, 6]);

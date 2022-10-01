@@ -1,13 +1,6 @@
 use collections_rust::Queue;
 
 fn main() {
-    // Seg fault example
-    // let p: *mut i32 = std::ptr::null_mut();
-    // unsafe {
-    //     *p = 6;
-    // }
-    // println!("yay");
-
     let mut queue = Queue::new();
 
     queue.append(3);

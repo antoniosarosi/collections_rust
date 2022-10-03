@@ -121,7 +121,7 @@ impl<T: Ord> BinaryTree<T> {
         self.value_removed = true;
         self.size -= 1;
 
-        // Node has only one child
+        // Node has only one child or none
         let mut replacement_node = None;
         if (*node.as_ptr()).left.is_none() {
             replacement_node = Some((*node.as_ptr()).right);
@@ -129,7 +129,7 @@ impl<T: Ord> BinaryTree<T> {
             replacement_node = Some((*node.as_ptr()).left);
         }
         if replacement_node.is_some() {
-            ptr::drop_in_place(node.as_ptr());
+            drop(Box::from_raw(node.as_ptr()));
             return replacement_node.unwrap();
         }
 
@@ -149,7 +149,7 @@ impl<T: Ord> BinaryTree<T> {
             (*node.as_ptr()).right = right.right;
         }
 
-        ptr::drop_in_place(node_to_be_dropped.as_ptr());
+        drop(Box::from_raw(node_to_be_dropped.as_ptr()));
 
         current
     }

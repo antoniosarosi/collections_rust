@@ -248,9 +248,9 @@ impl<T: Ord> BinaryTree<T> {
     /// tree.insert(1);
     /// tree.insert(2);
     /// tree.insert(3);
-    /// 
+    ///
     /// tree.remove(&2);
-    /// 
+    ///
     /// assert!(!tree.contains(&2));
     /// ```
     pub fn remove(&mut self, value: &T) -> bool {
@@ -276,6 +276,76 @@ impl<T> BinaryTree<T> {
 impl<T> Drop for BinaryTree<T> {
     fn drop(&mut self) {
         unsafe { self.drop_recursively(self.root) }
+    }
+}
+
+pub struct Iter<'a, T> {
+    values: Vec<&'a T>,
+    current_index: usize,
+}
+
+impl<T> BinaryTree<T> {
+    /// Fills `values` vector using inorder traversal.
+    unsafe fn push_values_inorder(&self, current: Link<T>, values: &mut Vec<&T>) {
+        if let Some(node) = current {
+            self.push_values_inorder((*node.as_ptr()).left, values);
+            values.push(&(*node.as_ptr()).value);
+            self.push_values_inorder((*node.as_ptr()).right, values);
+        }
+    }
+
+    /// Returns an iterator over the values contained in the tree.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use collections_rust::BinaryTree;
+    ///
+    /// let mut tree = BinaryTree::new();
+    ///
+    /// tree.insert(3);
+    /// tree.insert(1);
+    /// tree.insert(2);
+    ///
+    /// let mut expected = 1;
+    /// for value in tree.iter() {
+    ///     assert_eq!(value, &expected);
+    ///     expected += 1;
+    /// }
+    /// ```
+    pub fn iter(&self) -> Iter<T> {
+        let mut values = Vec::with_capacity(self.size);
+
+        unsafe {
+            self.push_values_inorder(self.root, &mut values);
+        }
+
+        Iter {
+            values,
+            current_index: 0,
+        }
+    }
+}
+
+impl<'a, T> Iterator for Iter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current_index == self.values.len() {
+            return None;
+        }
+
+        let value = self.values[self.current_index];
+
+        self.current_index += 1;
+
+        Some(value)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.values.len() - self.current_index;
+
+        (remaining, Some(remaining))
     }
 }
 
@@ -357,5 +427,28 @@ mod tests {
         assert!(tree.contains(&15));
         assert!(tree.contains(&14));
         assert!(tree.contains(&16));
+    }
+
+    #[test]
+    fn test_iter() {
+        let mut values = tree_values();
+
+        let mut tree = BinaryTree::new();
+
+        for value in values.iter() {
+            tree.insert(*value);
+        }
+
+        let mut iter = tree.iter();
+
+        values.sort();
+
+        for value in values.iter() {
+            let tree_value = iter.next();
+            assert!(tree_value.is_some());
+            assert_eq!(value, tree_value.unwrap());
+        }
+
+        assert!(iter.next().is_none());
     }
 }

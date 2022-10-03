@@ -1,13 +1,16 @@
 use std::{marker, ptr};
 
+/// Binary tree node.
 struct Node<T> {
     left: Link<T>,
     right: Link<T>,
     value: T,
 }
 
+/// Rusty pointer to a node.
 type Link<T> = Option<ptr::NonNull<Node<T>>>;
 
+/// Main binary tree struct.
 pub struct BinaryTree<T> {
     root: Link<T>,
     size: usize,
@@ -17,12 +20,15 @@ pub struct BinaryTree<T> {
 }
 
 impl<T> Node<T> {
+    /// Allocates a new node and returns a `ptr::NonNull` to the node.
     unsafe fn new_non_null(value: T, right: Link<T>, left: Link<T>) -> ptr::NonNull<Node<T>> {
         ptr::NonNull::new_unchecked(Box::into_raw(Box::new(Node { right, left, value })))
     }
 }
 
 impl<T: Ord> BinaryTree<T> {
+    /// Creates a new binary tree. Doesn't allocate memory until first value
+    /// is inserted.
     pub fn new() -> Self {
         Self {
             size: 0,
@@ -33,14 +39,44 @@ impl<T: Ord> BinaryTree<T> {
         }
     }
 
+    /// Returns the current number of elements in the tree.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use collections_rust::BinaryTree;
+    ///
+    /// let mut tree = BinaryTree::new();
+    ///
+    /// tree.insert(1);
+    /// assert_eq!(tree.size(), 1);
+    /// ```
     pub fn size(&self) -> usize {
         self.size
     }
 
+    /// Returns `true` if the tree contains no values.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use collections_rust::BinaryTree;
+    ///
+    /// let mut tree = BinaryTree::new();
+    ///
+    /// tree.insert(1);
+    /// assert!(!tree.is_empty());
+    ///
+    /// tree.remove(&1);
+    /// assert!(tree.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.size == 0
     }
 
+    /// Recursive function for inserting nodes in the tree. The funciton allways
+    /// returns a node to the caller, either the current node or the new inserted
+    /// node.
     unsafe fn insert_recursively(&mut self, mut current: Link<T>, value: T) -> Link<T> {
         if let Some(node) = current {
             if value < (*node.as_ptr()).value {
@@ -59,6 +95,19 @@ impl<T: Ord> BinaryTree<T> {
         current
     }
 
+    /// Adds the given `value` to the tree and returns `true` unless it is
+    /// already present.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use collections_rust::BinaryTree;
+    ///
+    /// let mut tree = BinaryTree::new();
+    ///
+    /// tree.insert(1);
+    /// assert!(tree.contains(&1));
+    /// ```
     pub fn insert(&mut self, value: T) -> bool {
         unsafe {
             self.root = self.insert_recursively(self.root, value);
@@ -67,6 +116,7 @@ impl<T: Ord> BinaryTree<T> {
         self.value_inserted
     }
 
+    /// Returns `true` if the node that contains `value` can be located.
     unsafe fn search(&self, current: Link<T>, value: &T) -> bool {
         match current {
             None => false,
@@ -83,10 +133,25 @@ impl<T: Ord> BinaryTree<T> {
         }
     }
 
+    /// Returns `true` if `value` is present in the tree.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use collections_rust::BinaryTree;
+    ///
+    /// let mut tree = BinaryTree::new();
+    ///
+    /// tree.insert(1);
+    /// assert!(tree.contains(&1));
+    /// assert!(!tree.contains(&2));
+    /// ```
     pub fn contains(&self, value: &T) -> bool {
         unsafe { self.search(self.root, value) }
     }
 
+    /// Returns a pointer to the parent node of the node that contains the
+    /// minimum value in the given subtree. Used for searching inorder successors.
     unsafe fn min_value_parent_node(&self, node: ptr::NonNull<Node<T>>) -> Link<T> {
         match (*node.as_ptr()).left {
             None => None,
@@ -98,6 +163,23 @@ impl<T: Ord> BinaryTree<T> {
         }
     }
 
+    /// Performs the binary tree node removal algorithm:
+    ///
+    /// - Find the node that contains `value`.
+    ///
+    /// - If the node only has one child, deallocate the node and make the parent
+    /// point to the child.
+    ///
+    /// - If the node has no children just make the parent point to any of its
+    /// non-existent children (set the `Link<T>` to `None`).
+    ///
+    /// - If the node has two children, locate the inorder successor of the
+    /// current node in the right subtree, swap the values, deallocate the
+    /// successor and make the successor parent point to `None`. The case where
+    /// the inorder successor parent is the root node has to be considered.
+    ///
+    /// Just like `insert_recursively`, a `Link<T>` will allways be returned
+    /// to the caller. This simplifies the amount of cases we have to deal with.
     unsafe fn remove_recursively(&mut self, current: Link<T>, value: &T) -> Link<T> {
         // Not found
         if current.is_none() {
@@ -133,8 +215,7 @@ impl<T: Ord> BinaryTree<T> {
             return replacement_node.unwrap();
         }
 
-        // Node has two children, search parent of inorder successor,
-        // replace node value with inorder succesor value and drop successor.
+        // Node has two children
         let node_to_be_dropped;
 
         if let Some(parent) = self.min_value_parent_node((*node.as_ptr()).right.unwrap()) {
@@ -154,6 +235,24 @@ impl<T: Ord> BinaryTree<T> {
         current
     }
 
+    /// Removes the `value` from the tree and returns `true` unless the `value`
+    /// is not present.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use collections_rust::BinaryTree;
+    ///
+    /// let mut tree = BinaryTree::new();
+    ///
+    /// tree.insert(1);
+    /// tree.insert(2);
+    /// tree.insert(3);
+    /// 
+    /// tree.remove(&2);
+    /// 
+    /// assert!(!tree.contains(&2));
+    /// ```
     pub fn remove(&mut self, value: &T) -> bool {
         unsafe {
             self.root = self.remove_recursively(self.root, value);
@@ -161,33 +260,24 @@ impl<T: Ord> BinaryTree<T> {
 
         self.value_removed
     }
-
-    // fn to_string(&self, current: Link<T>) -> String {
-    //     match current {
-    //         None => String::from(""),
-
-    //         Some(node) => unsafe {
-    //             let mut str = String::new();
-    //             let left = self.to_string((*node.as_ptr()).left);
-    //             let right = self.to_string((*node.as_ptr()).right);
-
-    //             if left.len() > 0 {
-    //                 str.push_str(left.as_str());
-    //                 str.push_str(", ");
-    //             }
-    //             str.push_str(format!("{:?}", (*node.as_ptr()).value).as_str());
-    //             if right.len() > 0 {
-    //                 str.push_str(", ");
-    //                 str.push_str(right.as_str());
-    //             }
-
-    //             str
-    //         },
-    //     }
-    // }
 }
 
-// TODO: Implement Drop for Tree. Currently it leaks memory.
+impl<T> BinaryTree<T> {
+    /// Drop the left subtree, drop the right subtree and then drop the root.
+    unsafe fn drop_recursively(&mut self, current: Link<T>) {
+        if let Some(node) = current {
+            self.drop_recursively((*node.as_ptr()).left);
+            self.drop_recursively((*node.as_ptr()).right);
+            drop(Box::from_raw(node.as_ptr()));
+        }
+    }
+}
+
+impl<T> Drop for BinaryTree<T> {
+    fn drop(&mut self) {
+        unsafe { self.drop_recursively(self.root) }
+    }
+}
 
 #[cfg(test)]
 mod tests {
